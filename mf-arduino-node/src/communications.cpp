@@ -8,10 +8,7 @@
 #include "communications.h"
 #include "definitions.h"
 
-#define DEBUG 0
-#define SEND_TEST 1
-
-MFAN_StreamData data; // General Purpose Unsafe Stream Data
+MFAN_StreamData data;	// Stream Data (Keep single struct to limit size)
 
 void mfan_setup()
 {
@@ -24,42 +21,66 @@ void mfan_setup()
 	Wire.begin();
 }
 
-// TODO: Change to reactionary to PyCom instructions
+// 1) Send Start (0xF0)
+// 2) Send Address (Seesaw I2C Address)
+// 3) Send Command
 void mfan_loop()
 {
-	// Wait for request for data from PyCom
-	// Sends address of seesaw
-	if(Serial.available() > 0)
+	mfan_waitforstart();
+	delay(200);
+}
+
+// Wait for Start Command (Blocking)
+void mfan_waitforstart()
+{
+	while(Serial.available() <= 0);
+
+	if(Serial.read() == UCOM_START)
+		mfan_waitforaddress();
+}
+
+// Wait for Address (Blocking)
+void mfan_waitforaddress()
+{
+	while(Serial.available() <= 0);
+
+	mfan_waitforcommand(Serial.read());
+}
+
+
+// Wait for Command (Blocking)
+void mfan_waitforcommand(uint8_t addr)
+{
+	while(Serial.available() <= 0);
+
+	uint8_t command = Serial.read();
+
+	// GET DATA
+	if(command == UCOM_GETDATA)
 	{
-		int addr = Serial.read();
-		if(addr >= 0x10 && addr <= 0x15)
-		{
-			#if DEBUG
-				Serial.println("\n\n\n");
-			#endif
+		mfan_getstream(addr);
+		mfan_senduart();
 
-
-			// TEST COMMANDS
-			mfan_issue(addr, COMMAND_SOLENOIDON);
-
-			#if SEND_TEST
-				mfan_issue(addr, COMMAND_TEST);
-			#endif
-
-			mfan_issue(addr, COMMAND_SOLENOIDOFF);
-
-
-			// ASK FOR INFO
-			mfan_getstream(addr);
-
-			#if DEBUG
-				mfan_printstream();
-			#endif
-
-			mfan_senduart(); // Send Data to PyCom
-			delay(100);
-		}
+		#if DEBUG
+			mfan_printstream();
+		#endif
 	}
+	
+	// SOLENOID ON
+	if(command == UCOM_SOLENOIDON)
+	{
+		mfan_issue(addr, DCOM_SOLENOIDON);
+	}
+
+	// SOLENOID OFF
+	if(command == UCOM_SOLENOIDOFF)
+	{
+		mfan_issue(addr, DCOM_SOLENOIDOFF);
+	}
+
+	#if SEND_TEST
+		mfan_issue(addr, DCOM_TEST);
+	#endif
 }
 
 void mfan_senduart()
@@ -90,50 +111,43 @@ void mfan_getstream(uint8_t address)
 	for(int i = 0; i < 4; i++)
 	{
 		// ONLINE SENSORS
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_ONLINE(i), &data.sensor_online[i]);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_ONLINE(i), &data.sensor_online[i]);
 		if(!data.seesaw_online) return;
 		if(!data.sensor_online[i]) continue;
 
 		// UPDATE IDENTIFICATION
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_UID(i), &data.UID[i]);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_UID(i), &data.UID[i]);
 		if(!data.seesaw_online) return;
 
 		// MOISTURE MSB
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_MOISTUREA(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_MOISTUREA(i), &info8);
 		if(!data.seesaw_online) return;
 		info16 = ((uint16_t)info8) << 8;
 
 		// MOISTURE LSB
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_MOISTUREB(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_MOISTUREB(i), &info8);
 		if(!data.seesaw_online) return;
 		info16 |= info8;
 		data.moisture[i] = info16;
 
 		// TEMPERATURE
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_TEMPERATUREA(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_TEMPERATUREA(i), &info8);
 		if(!data.seesaw_online) return;
 		info32 = ((uint32_t)info8) << 24;
 
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_TEMPERATUREB(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_TEMPERATUREB(i), &info8);
 		if(!data.seesaw_online) return;
 		info32 |= ((uint32_t)info8) << 16;
 
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_TEMPERATUREC(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_TEMPERATUREC(i), &info8);
 		if(!data.seesaw_online) return;
 		info32 |= ((uint32_t)info8) << 8;
 
-		data.seesaw_online = mfan_requestinfo(address, COMMAND_TEMPERATURED(i), &info8);
+		data.seesaw_online = mfan_requestinfo(address, DCOM_TEMPERATURED(i), &info8);
 		if(!data.seesaw_online) return;
 		info32 |= ((uint32_t)info8);
 		data.temperature[i] = info32;
 	}
-}
-
-uint8_t mfan_issue(uint8_t address, uint8_t command)
-{
-	Wire.beginTransmission(address);
-	Wire.write(command);
-	Wire.endTransmission();
 }
 
 uint8_t mfan_requestinfo(uint8_t address, uint8_t command, uint8_t *info)
@@ -142,6 +156,13 @@ uint8_t mfan_requestinfo(uint8_t address, uint8_t command, uint8_t *info)
 	uint8_t available = Wire.requestFrom((int)address, 1);
 	if(available) (*info) = Wire.read();
 	return available;
+}
+
+uint8_t mfan_issue(uint8_t address, uint8_t command)
+{
+	Wire.beginTransmission(address);
+	Wire.write(command);
+	Wire.endTransmission();
 }
 
 void printHex(int num, int precision)

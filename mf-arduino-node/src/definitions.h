@@ -1,20 +1,22 @@
 // COMMANDS
-#define FIRST_ADDRESS	0x10
-#define LAST_ADDRESS	0x15
+// UCOM_[] is command from PyCom
+#define UCOM_START			0xF0
+#define UCOM_GETDATA		0xA0
+#define UCOM_SOLENOIDOFF	0xA1
+#define UCOM_SOLENOIDON		0xA2
 
-#define COMMAND_TEST		0xFF
-
-#define COMMAND_UID(i)			(0x10 + i*0x10)
-#define COMMAND_MOISTUREA(i) 	(0x11 + i*0x10)
-#define COMMAND_MOISTUREB(i) 	(0x12 + i*0x10)
-#define COMMAND_TEMPERATUREA(i)	(0x13 + i*0x10)
-#define COMMAND_TEMPERATUREB(i)	(0x14 + i*0x10)
-#define COMMAND_TEMPERATUREC(i)	(0x15 + i*0x10)
-#define COMMAND_TEMPERATURED(i)	(0x16 + i*0x10)
-#define COMMAND_ONLINE(i) 		(0x17 + i*0x10)
-
-#define COMMAND_SOLENOIDON	0x90
-#define COMMAND_SOLENOIDOFF	0x91
+// DCOM_[] is commmand to seesaw
+#define DCOM_TEST				0xFF
+#define DCOM_UID(i)				(0x10 + i*0x10)
+#define DCOM_MOISTUREA(i) 		(0x11 + i*0x10)
+#define DCOM_MOISTUREB(i) 		(0x12 + i*0x10)
+#define DCOM_TEMPERATUREA(i)	(0x13 + i*0x10)
+#define DCOM_TEMPERATUREB(i)	(0x14 + i*0x10)
+#define DCOM_TEMPERATUREC(i)	(0x15 + i*0x10)
+#define DCOM_TEMPERATURED(i)	(0x16 + i*0x10)
+#define DCOM_ONLINE(i) 			(0x17 + i*0x10)
+#define DCOM_SOLENOIDON			0x90
+#define DCOM_SOLENOIDOFF		0x91
 
 typedef struct
 {
